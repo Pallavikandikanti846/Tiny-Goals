@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TinyGoals - Micro Goal Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 400px;
+      margin: 2rem auto;
+      padding: 1rem;
+      background: #f0f4f8;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    form {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 0.5rem;
+      font-size: 1rem;
+    }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      padding: 0.4rem 0.7rem;
+    }
+    button.add-btn {
+      background-color: #4caf50;
+      color: white;
+    }
+    button.edit-btn, button.delete-btn {
+      background: #ddd;
+      margin-left: 0.3rem;
+    }
+    ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    li {
+      background: white;
+      margin-bottom: 0.5rem;
+      padding: 0.5rem;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+    li.completed span {
+      text-decoration: line-through;
+      color: #888;
+    }
+    .streak {
+      margin-top: 1rem;
+      font-weight: bold;
+      text-align: center;
+      line-height: 1.5;
+    }
+    input.edit-input {
+      flex: 1;
+      padding: 0.3rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>TinyGoals 📝</h1>
+
+  <form id="goalForm">
+    <input type="text" id="goalInput" placeholder="Add a tiny goal for today" required />
+    <button type="submit" class="add-btn">Add</button>
+  </form>
+
+  <ul id="goalList"></ul>
+
+  <div class="streak" id="streakDisplay"></div>
+
+  <script>
+    function getDateString(date) {
+      return date.toISOString().split('T')[0];
+    }
+
+    function loadGoals() {
+      const today = getDateString(new Date());
+      const data = localStorage.getItem('tinygoals_' + today);
+      return data ? JSON.parse(data) : [];
+    }
+
+    function saveGoals(goals) {
+      const today = getDateString(new Date());
+      localStorage.setItem('tinygoals_' + today, JSON.stringify(goals));
+    }
+
+    function showCompletionMessage() {
+      const goals = loadGoals();
+      const completionDivId = 'completionMessage';
+      let completionDiv = document.getElementById(completionDivId);
+
+      if (!completionDiv) {
+        completionDiv = document.createElement('div');
+        completionDiv.id = completionDivId;
+        completionDiv.style.marginTop = '1rem';
+        completionDiv.style.textAlign = 'center';
+        completionDiv.style.fontWeight = 'bold';
+        document.body.appendChild(completionDiv);
+      }
+
+      if (goals.length > 0 && goals.every(g => g.done)) {
+        completionDiv.textContent = "🎉 Great job! You've completed all your goals for today. Come back tomorrow to add new ones!";
+      } else {
+        completionDiv.textContent = '';
+      }
+    }
+    function showMotivationMessage() {
+  const goals = loadGoals();
+  const motivationDivId = 'motivationMessage';
+  let motivationDiv = document.getElementById(motivationDivId);
+
+  if (!motivationDiv) {
+    motivationDiv = document.createElement('div');
+    motivationDiv.id = motivationDivId;
+    motivationDiv.style.marginTop = '1rem';
+    motivationDiv.style.textAlign = 'center';
+    motivationDiv.style.fontWeight = 'bold';
+    motivationDiv.style.color = '#2e7d32'; // green color
+    document.body.appendChild(motivationDiv);
+  }
+
+  if (goals.length > 1 && goals.some(g => g.done) && !goals.every(g => g.done)) {
+    motivationDiv.textContent = "👍 Great start! Keep going and complete more goals today!";
+  } else {
+    motivationDiv.textContent = '';
+  }
+}
+
+
+    function renderGoals() {
+      const goals = loadGoals();
+      const list = document.getElementById('goalList');
+      list.innerHTML = '';
+
+     goals.forEach((goal, index) => {
+  const li = document.createElement('li');
+  li.className = goal.done ? 'completed' : '';
+
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = goal.done;
+  checkbox.addEventListener('change', () => {
+    goals[index].done = checkbox.checked;
+    saveGoals(goals);
+    renderGoals();
+    updateStreakAndPoints();
+    showCompletionMessage();
+    showMotivationMessage();
+  });
+
+  const span = document.createElement('span');
+  span.textContent = goal.text;
+
+  // Edit Button
+  const editBtn = document.createElement('button');
+  editBtn.textContent = '✏️';
+  editBtn.className = 'edit-btn';
+  editBtn.title = 'Edit goal';
+
+  if (goal.done) {
+    editBtn.disabled = true;
+    editBtn.style.opacity = '0.5';
+    editBtn.style.cursor = 'not-allowed';
+  } else {
+    editBtn.style.cursor = 'pointer';
+    editBtn.addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = goal.text;
+      input.className = 'edit-input';
+      li.replaceChild(input, span);
+      input.focus();
+
+      function saveEdit() {
+        const val = input.value.trim();
+        if (val) {
+          goals[index].text = val;
+          saveGoals(goals);
+        }
+        renderGoals();
+        updateStreakAndPoints();
+        showCompletionMessage();
+        showMotivationMessage();
+      }
+
+      input.addEventListener('blur', saveEdit);
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') input.blur();
+        else if (e.key === 'Escape') {
+          renderGoals();
+          showCompletionMessage();
+          showMotivationMessage();
+        }
+      });
+    });
+  }
+
+  // Delete Button
+  const deleteBtn = document.createElement('button');
+  deleteBtn.textContent = '🗑️';
+  deleteBtn.className = 'delete-btn';
+  deleteBtn.title = 'Delete goal';
+
+  if (goal.done) {
+    deleteBtn.disabled = true;
+    deleteBtn.style.opacity = '0.5';
+    deleteBtn.style.cursor = 'not-allowed';
+  } else {
+    deleteBtn.style.cursor = 'pointer';
+    deleteBtn.addEventListener('click', () => {
+      goals.splice(index, 1);
+      saveGoals(goals);
+      renderGoals();
+      updateStreakAndPoints();
+      showCompletionMessage();
+      showMotivationMessage();
+    });
+  }
+
+  li.appendChild(checkbox);
+  li.appendChild(span);
+  li.appendChild(editBtn);
+  li.appendChild(deleteBtn);
+  list.appendChild(li);
+});
+}
+
+    document.getElementById('goalForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const input = document.getElementById('goalInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const goals = loadGoals();
+      goals.push({ text, done: false });
+      saveGoals(goals);
+      input.value = '';
+      renderGoals();
+      updateStreakAndPoints();
+      showCompletionMessage();
+      showMotivationMessage();
+    });
+
+    function getTotalPoints() {
+      let total = 0;
+      for (let i = 0; i < 365; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = 'tinygoals_' + getDateString(d);
+        const dayGoals = JSON.parse(localStorage.getItem(key) || '[]');
+        total += dayGoals.filter(g => g.done).length * 100;
+      }
+      return total;
+    }
+
+    function updateStreakAndPoints() {
+      const today = new Date();
+      let streak = 0;
+
+      for (let i = 0; i < 365; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const key = 'tinygoals_' + getDateString(d);
+        const dayGoals = JSON.parse(localStorage.getItem(key) || '[]');
+
+        if (dayGoals.some(g => g.done)) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+
+      const streakDisplay = document.getElementById('streakDisplay');
+      if (streak > 0) {
+        streakDisplay.innerHTML = `
+          🔥 Current streak: <strong>${streak}</strong> day${streak > 1 ? 's' : ''}!<br>
+          ⭐ Total points: <strong>${getTotalPoints()}</strong>
+        `;
+      } else {
+        streakDisplay.innerHTML = `
+          No completed goals yet. Start today!<br>
+          ⭐ Total points: <strong>${getTotalPoints()}</strong>
+        `;
+      }
+    }
+
+    // Initial render
+    renderGoals();
+    updateStreakAndPoints();
+    showCompletionMessage();
+    showMotivationMessage();
+  </script>
+</body>
+</html>
